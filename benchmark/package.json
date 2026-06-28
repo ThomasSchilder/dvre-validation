@@ -1,0 +1,14 @@
+{
+  "name": "dvre-validation-benchmark",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.js",
+    "reads": "node reads.js",
+    "writes": "node writes.js",
+    "all": "node setup.js && node reads.js && node writes.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4"
+  }
+}

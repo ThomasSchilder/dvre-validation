@@ -1,0 +1,8 @@
+{
+  "networkSizes": [4, 7, 10, 20, 50],
+  "rates": [1, 10, 20, 50],
+  "observations": 500,
+  "chainId": 1811,
+  "gasPrice": 0,
+  "roundRobin": true
+}
