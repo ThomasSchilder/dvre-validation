@@ -1,0 +1,147 @@
+---
+# Install Docker + Docker Compose and start Besu on all nodes.
+# Usage: ansible-playbook deploy-besu.yml -i inventory.ini
+
+- name: Install Docker and start Besu
+  hosts: besu
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Update apt
+      apt:
+        update_cache: true
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+          - python3-docker
+        state: present
+
+    - name: Add ubuntu to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    - name: Reset connection to pick up new group membership
+      meta: reset_connection
+
+    - name: Create data directory
+      file:
+        path: /home/ubuntu/besu/data
+        state: directory
+        owner: ubuntu
+
+    - name: Stop existing Besu containers
+      community.docker.docker_compose_v2:
+        project_src: /home/ubuntu/besu
+        state: absent
+      become: false
+      ignore_errors: true
+
+    - name: Clean data directory
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /home/ubuntu/besu/data
+      become: true
+
+    - name: Recreate data directory
+      file:
+        path: /home/ubuntu/besu/data
+        state: directory
+        owner: ubuntu
+
+    - name: Set bootnode URL
+      set_fact:
+        bootnode_url: "{{ lookup('file', playbook_dir + '/../besu/bootnodes.txt') }}"
+        sync_min_peers: "{{ groups['besu'] | length - 1 }}"
+
+    - name: Template docker-compose with node private IP
+      template:
+        src: "{{ playbook_dir }}/../besu/docker-compose.yml"
+        dest: /home/ubuntu/besu/docker-compose.yml
+      become: false
+
+    - name: Start Besu with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: /home/ubuntu/besu
+        state: present
+      become: false
+
+    - name: Wait for Besu RPC to be ready
+      uri:
+        url: "http://localhost:8545"
+        method: POST
+        body: '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+        body_format: json
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Display node status
+      debug:
+        msg: "Besu node {{ inventory_hostname }} ready: block {{ (result.json.result | int(base=16)) }}"
+
+- name: Wait for all peers to connect
+  hosts: besu
+  gather_facts: false
+
+  tasks:
+    - name: Wait until peer count reaches N-1
+      uri:
+        url: "http://localhost:8545"
+        method: POST
+        body: '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}'
+        body_format: json
+        status_code: 200
+      register: peer_result
+      until: "(peer_result.json.result | int(base=16)) == (groups['besu'] | length - 1)"
+      retries: 60
+      delay: 2
+      changed_when: false
+
+    - name: Display peer count
+      debug:
+        msg: "{{ inventory_hostname }} has {{ (peer_result.json.result | int(base=16)) }} peers (expected {{ groups['besu'] | length - 1 }})"
+
+- name: Wait for consensus to produce blocks
+  hosts: besu
+  gather_facts: false
+
+  tasks:
+    - name: Get initial block number
+      uri:
+        url: "http://localhost:8545"
+        method: POST
+        body: '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+        body_format: json
+        status_code: 200
+      register: initial_block
+      changed_when: false
+      run_once: true
+
+    - name: Wait for block number to increase
+      uri:
+        url: "http://localhost:8545"
+        method: POST
+        body: '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+        body_format: json
+        status_code: 200
+      register: current_block
+      until: "(current_block.json.result | int(base=16)) > (initial_block.json.result | int(base=16))"
+      retries: 30
+      delay: 2
+      changed_when: false
+      run_once: true
+
+    - name: Display consensus status
+      debug:
+        msg: "Consensus active: block {{ (current_block.json.result | int(base=16)) }} (was {{ (initial_block.json.result | int(base=16)) }})"
+      run_once: true

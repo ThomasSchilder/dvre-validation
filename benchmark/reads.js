@@ -100,7 +100,7 @@ async function main() {
     }
   }
 
-  saveResults(allResults, `reads_n${networkSize}_r${rate}.json`);
+  saveResults(allResults, `reads_n${networkSize}_r${rate}_o${cfg.observations}.json`);
   console.log(`\nReads benchmark complete: ${allResults.length} observations`);
 }
 

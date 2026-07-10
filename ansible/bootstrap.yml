@@ -1,0 +1,123 @@
+---
+# Generate N node keys + IBFT2 genesis file locally, then distribute to Besu nodes.
+# Usage: ansible-playbook bootstrap.yml -i inventory.ini -e node_count=10
+
+- name: Generate Besu network configuration
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    work_dir: "{{ playbook_dir }}/../besu"
+    network_dir: "{{ work_dir }}/networkFiles"
+
+  tasks:
+    - name: Set node count in ibftConfigFile
+      template:
+        src: "{{ work_dir }}/ibftConfigFile.json"
+        dest: "{{ work_dir }}/ibftConfigFile.json"
+      vars:
+        node_count: "{{ node_count }}"
+
+    - name: Generate keys and genesis
+      command: >
+        docker run --rm -v "{{ work_dir }}":/work -w /work hyperledger/besu:25.5.0
+        operator generate-blockchain-config
+        --config-file=ibftConfigFile.json
+        --to=networkFiles
+        --private-key-file-name=key
+      ignore_errors: true
+
+    - name: Verify genesis was generated
+      stat:
+        path: "{{ network_dir }}/genesis.json"
+      register: genesis_check
+      failed_when: not genesis_check.stat.exists
+
+    - name: Read genesis
+      set_fact:
+        genesis_content: "{{ lookup('file', network_dir + '/genesis.json') }}"
+
+    - name: Find node directories
+      find:
+        paths: "{{ network_dir }}/keys"
+        file_type: directory
+        patterns: "0x*"
+      register: node_dirs
+
+    - name: Set sorted key directory names
+      set_fact:
+        key_dir_names: "{{ node_dirs.files | sort(attribute='path') | map(attribute='path') | map('basename') | list }}"
+
+    - name: Display generated files
+      debug:
+        msg: "Found {{ node_dirs.files | length }} node directories + genesis.json"
+
+- name: Distribute genesis to all Besu nodes
+  hosts: besu
+  gather_facts: false
+  vars:
+    network_dir: "{{ playbook_dir }}/../besu/networkFiles"
+
+  tasks:
+    - name: Create config directory
+      file:
+        path: /home/ubuntu/besu/config
+        state: directory
+
+    - name: Copy genesis
+      copy:
+        src: "{{ network_dir }}/genesis.json"
+        dest: /home/ubuntu/besu/config/genesis.json
+
+    - name: Copy node key
+      copy:
+        src: "{{ network_dir }}/keys/{{ hostvars['localhost']['key_dir_names'][node_index | int] }}/key"
+        dest: /home/ubuntu/besu/config/key
+
+- name: Generate enode list and update static nodes
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    network_dir: "{{ playbook_dir }}/../besu/networkFiles"
+    work_dir: "{{ playbook_dir }}/../besu"
+
+  tasks:
+    - name: Find node directories
+      find:
+        paths: "{{ network_dir }}/keys"
+        file_type: directory
+        patterns: "0x*"
+      register: node_dirs
+
+    - name: Read all node keys
+      set_fact:
+        node_keys: "{{ node_keys | default([]) + [lookup('file', item.path + '/key.pub') | regex_replace('^0x', '')] }}"
+      loop: "{{ node_dirs.files | sort(attribute='path') }}"
+
+    - name: Generate static-nodes.json
+      copy:
+        content: |
+          [
+          {% for key in node_keys %}
+            "enode://{{ key }}@{{ hostvars[groups['besu'][loop.index0]]['private_ip'] }}:30303"{% if not loop.last %},{% endif %}
+          {% endfor %}
+          ]
+        dest: "{{ work_dir }}/static-nodes.json"
+
+    - name: Write bootnodes file
+      copy:
+        content: "enode://{{ node_keys[0] }}@{{ hostvars[groups['besu'][0]]['private_ip'] }}:30303"
+        dest: "{{ work_dir }}/bootnodes.txt"
+
+- name: Distribute static-nodes.json to all Besu nodes
+  hosts: besu
+  gather_facts: false
+  vars:
+    work_dir: "{{ playbook_dir }}/../besu"
+
+  tasks:
+    - name: Copy static-nodes.json
+      copy:
+        src: "{{ work_dir }}/static-nodes.json"
+        dest: /home/ubuntu/besu/config/static-nodes.json

@@ -2,6 +2,8 @@ results/
 terraform-output.json
 ansible/inventory.ini
 besu/networkFiles/
+besu/bootnodes.txt
+besu/static-nodes.json
 node_modules/
 *.tfstate*
 .terraform/

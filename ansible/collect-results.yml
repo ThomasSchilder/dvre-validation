@@ -1,0 +1,32 @@
+---
+# Fetch results JSON files from runner to local machine.
+# Usage: ansible-playbook collect-results.yml -i inventory.ini
+
+- name: Collect results
+  hosts: runner
+  gather_facts: false
+
+  tasks:
+    - name: Create local results directory
+      file:
+        path: "{{ playbook_dir }}/../results"
+        state: directory
+      delegate_to: localhost
+      become: false
+
+    - name: Find result files
+      find:
+        path: /home/ubuntu/benchmark/results
+        patterns: "*.json"
+      register: result_files
+
+    - name: Fetch result files
+      fetch:
+        src: "{{ item.path }}"
+        dest: "{{ playbook_dir }}/../results/"
+        flat: true
+      loop: "{{ result_files.files }}"
+
+    - name: Display collected files
+      debug:
+        msg: "Collected {{ result_files.files | length }} result files"

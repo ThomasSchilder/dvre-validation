@@ -204,7 +204,7 @@ async function main() {
   }
 
   wsRr.destroy();
-  saveResults(allResults, `writes_n${networkSize}_r${rate}.json`);
+  saveResults(allResults, `writes_n${networkSize}_r${rate}_o${cfg.observations}.json`);
   console.log(`\nWrites benchmark complete: ${allResults.length} observations`);
 }
 

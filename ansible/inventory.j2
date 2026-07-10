@@ -1,0 +1,13 @@
+[besu]
+{% for host in groups['besu_nodes'] %}
+{{ host }} ansible_host={{ hostvars[host]['ansible_host'] }} private_ip={{ hostvars[host]['private_ip'] }} node_index={{ loop.index0 }}
+{% endfor %}
+
+[runner]
+{{ groups['runner'][0] }} ansible_host={{ hostvars[groups['runner'][0]]['ansible_host'] }}
+
+[besu:vars]
+ansible_user=ubuntu
+
+[runner:vars]
+ansible_user=ubuntu

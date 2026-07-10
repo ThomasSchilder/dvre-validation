@@ -1,0 +1,45 @@
+services:
+  besu:
+    image: hyperledger/besu:25.5.0
+    environment:
+      BESU_GENESIS_FILE: "/config/genesis.json"
+      BESU_DATA_PATH: "/opt/besu/data"
+      BESU_NODE_PRIVATE_KEY_FILE: "/config/key"
+      BESU_STATIC_NODES_FILE: "/config/static-nodes.json"
+      BESU_BOOTNODES: "{{ bootnode_url }}"
+      BESU_RPC_HTTP_ENABLED: "true"
+      BESU_RPC_HTTP_HOST: "0.0.0.0"
+      BESU_RPC_HTTP_PORT: "8545"
+      BESU_RPC_HTTP_API: "ETH,NET,WEB3,TRACE,DEBUG"
+      BESU_P2P_ENABLED: "true"
+      BESU_P2P_HOST: "{{ private_ip }}"
+      BESU_P2P_PORT: "30303"
+      BESU_RPC_WS_ENABLED: "true"
+      BESU_RPC_WS_HOST: "0.0.0.0"
+      BESU_RPC_WS_PORT: "8546"
+      BESU_RPC_WS_METHODS: "ETH,NET,WEB3,TRACE,DEBUG"
+      BESU_HOST_ALLOWLIST: "*"
+      BESU_MIN_GAS_PRICE: "0"
+      BESU_BONSAI_HISTORICAL_BLOCK_LIMIT: "512"
+      BESU_SYNC_MIN_PEERS: "0"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    volumes:
+      - ./data:/opt/besu/data
+      - ./config/:/config
+    ports:
+    - target: 8545
+      published: 8545
+      protocol: tcp
+    - target: 8546
+      published: 8546
+      protocol: tcp
+    - target: 30303
+      published: 30303
+      protocol: tcp
+    - target: 30303
+      published: 30303
+      protocol: udp

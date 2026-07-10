@@ -183,11 +183,11 @@ async function main() {
     senderWallets: senderWalletInfo,
   };
 
+  saveResults(results, "setup.json");
+
   const statePath = new URL("./results/state.json", import.meta.url);
   fs.writeFileSync(statePath.pathname, JSON.stringify(state, null, 2));
   console.log(`\nState saved to ${statePath.pathname}`);
-
-  saveResults(results, "setup.json");
 
   console.log("\nSetup complete!");
 }

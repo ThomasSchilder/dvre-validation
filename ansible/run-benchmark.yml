@@ -1,0 +1,113 @@
+---
+# Install Node.js + benchmark on runner, run setup + all benchmarks, collect results.
+# Usage: ansible-playbook run-benchmark.yml -i inventory.ini -e node_count=10
+
+- name: Setup runner and run benchmarks
+  hosts: runner
+  gather_facts: true
+  become: true
+  vars:
+    rates: [5, 10, 25, 50, 75, 100]
+
+  tasks:
+    - name: Install Node.js 22
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+        apt-get install -y nodejs
+      args:
+        creates: /usr/bin/node
+
+    - name: Create benchmark directory
+      file:
+        path: /home/ubuntu/benchmark
+        state: directory
+        owner: ubuntu
+
+    - name: Copy benchmark files
+      synchronize:
+        src: "{{ playbook_dir }}/../benchmark/"
+        dest: /home/ubuntu/benchmark/
+        rsync_opts:
+          - "--exclude=node_modules"
+          - "--exclude=results"
+      become: false
+
+    - name: Install npm dependencies
+      command: npm install
+      args:
+        chdir: /home/ubuntu/benchmark
+      become: false
+
+    - name: Build RPC URLs from besu group
+      set_fact:
+        rpc_urls: "{{ rpc_urls | default([]) + ['http://' + hostvars[item]['private_ip'] + ':8545'] }}"
+      loop: "{{ groups['besu'] }}"
+
+    - name: Build WS URLs from besu group
+      set_fact:
+        ws_urls: "{{ ws_urls | default([]) + ['ws://' + hostvars[item]['private_ip'] + ':8546'] }}"
+      loop: "{{ groups['besu'] }}"
+
+    - name: Display RPC URLs
+      debug:
+        msg: "RPC URLs: {{ rpc_urls | join(',') }}"
+
+    - name: Display WS URLs
+      debug:
+        msg: "WS URLs: {{ ws_urls | join(',') }}"
+
+    - name: Generate deployer account
+      shell: node -e "const {Wallet}=require('ethers'); const w=Wallet.createRandom(); console.log(w.privateKey + ' ' + w.address)"
+      args:
+        chdir: /home/ubuntu/benchmark
+      register: deployer_info
+      become: false
+
+    - name: Set deployer facts
+      set_fact:
+        deployer_private_key: "{{ deployer_info.stdout.split(' ')[0] }}"
+        deployer_address: "{{ deployer_info.stdout.split(' ')[1] }}"
+
+    - name: Run setup
+      command: node setup.js
+      args:
+        chdir: /home/ubuntu/benchmark
+      environment:
+        RPC_URLS: "{{ rpc_urls | join(',') }}"
+        DEPLOYER_PRIVATE_KEY: "{{ deployer_private_key }}"
+      become: false
+      register: setup_output
+
+    - name: Display setup output
+      debug:
+        msg: "{{ setup_output.stdout_lines[-5:] }}"
+
+    - name: Run reads benchmark for each rate
+      command: "node reads.js"
+      args:
+        chdir: /home/ubuntu/benchmark
+      environment:
+        RPC_URLS: "{{ rpc_urls | join(',') }}"
+        NETWORK_SIZE: "{{ node_count }}"
+        RATE: "{{ item }}"
+      become: false
+      loop: "{{ rates }}"
+      async: 3600
+      poll: 15
+      register: reads_jobs
+
+    - name: Run writes benchmark for each rate
+      command: "node writes.js"
+      args:
+        chdir: /home/ubuntu/benchmark
+      environment:
+        RPC_URLS: "{{ rpc_urls | join(',') }}"
+        WS_URLS: "{{ ws_urls | join(',') }}"
+        DEPLOYER_PRIVATE_KEY: "{{ deployer_private_key }}"
+        NETWORK_SIZE: "{{ node_count }}"
+        RATE: "{{ item }}"
+      become: false
+      loop: "{{ rates }}"
+      async: 7200
+      poll: 15
+      register: writes_jobs
