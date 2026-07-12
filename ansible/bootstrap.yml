@@ -13,7 +13,7 @@
   tasks:
     - name: Set node count in ibftConfigFile
       template:
-        src: "{{ work_dir }}/ibftConfigFile.json"
+        src: "{{ work_dir }}/ibftConfigFile.json.j2"
         dest: "{{ work_dir }}/ibftConfigFile.json"
       vars:
         node_count: "{{ node_count }}"
