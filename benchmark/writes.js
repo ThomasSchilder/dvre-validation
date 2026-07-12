@@ -1,6 +1,6 @@
 import { Wallet, Interface } from "ethers";
 import fs from "fs";
-import { loadConfig, RoundRobinProvider, RoundRobinWsProvider, saveResults, runConcurrent } from "./helpers.js";
+import { loadConfig, RoundRobinProvider, RoundRobinWsProvider, saveResults, runConcurrent, withTimeout } from "./helpers.js";
 
 function loadAbi(name) {
   const path = new URL(`./abi/${name}.json`, import.meta.url).pathname;
@@ -134,28 +134,32 @@ async function main() {
       submitFn: (i, submitTs) => {
         const { signedTx, extra } = signedTxs[i];
 
-        return (async () => {
-          const broadcastProvider = httpRr.next();
-          const txResponse = await broadcastProvider.broadcastTransaction(signedTx);
-          const wsProvider = wsRr.next();
-          const receipt = await wsProvider.waitForTransaction(txResponse.hash);
-          const completeTs = Date.now();
-          return {
-            call_type: callType,
-            network_size: networkSize,
-            rate,
-            obs_n: i,
-            submit_ts: submitTs,
-            complete_ts: completeTs,
-            latency_ms: completeTs - submitTs,
-            block_number: receipt.blockNumber,
-            tx_hash: txResponse.hash,
-            gas_used: receipt.gasUsed?.toString(),
-            rpc_node: broadcastProvider._rpcUrl,
-            ws_node: wsRr.urls[wsRr.index % wsRr.count],
-            ...extra,
-          };
-        })().catch((err) => {
+        return withTimeout(
+          (async () => {
+            const broadcastProvider = httpRr.next();
+            const txResponse = await broadcastProvider.broadcastTransaction(signedTx);
+            const wsProvider = wsRr.next();
+            const receipt = await wsProvider.waitForTransaction(txResponse.hash);
+            const completeTs = Date.now();
+            return {
+              call_type: callType,
+              network_size: networkSize,
+              rate,
+              obs_n: i,
+              submit_ts: submitTs,
+              complete_ts: completeTs,
+              latency_ms: completeTs - submitTs,
+              block_number: receipt.blockNumber,
+              tx_hash: txResponse.hash,
+              gas_used: receipt.gasUsed?.toString(),
+              rpc_node: broadcastProvider._rpcUrl,
+              ws_node: wsRr.urls[wsRr.index % wsRr.count],
+              ...extra,
+            };
+          })(),
+          120000,
+          callType
+        ).catch((err) => {
           const completeTs = Date.now();
           return {
             call_type: callType,
@@ -166,6 +170,7 @@ async function main() {
             complete_ts: completeTs,
             latency_ms: completeTs - submitTs,
             error: err.shortMessage || err.message,
+            signed_tx: signedTx,
           };
         });
       },

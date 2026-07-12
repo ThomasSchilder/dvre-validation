@@ -1,6 +1,6 @@
 import { Contract } from "ethers";
 import fs from "fs";
-import { loadConfig, RoundRobinProvider, saveResults, runConcurrent } from "./helpers.js";
+import { loadConfig, RoundRobinProvider, saveResults, runConcurrent, withTimeout } from "./helpers.js";
 
 function loadAbi(name) {
   const path = new URL(`./abi/${name}.json`, import.meta.url).pathname;
@@ -53,7 +53,7 @@ async function main() {
       label: callType,
       submitFn: (i, submitTs) => {
         const provider = rr.next();
-        return fn(provider)
+        return withTimeout(fn(provider), 30000, callType)
           .then((result) => {
             const completeTs = Date.now();
             return {
