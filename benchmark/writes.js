@@ -100,7 +100,7 @@ async function main() {
     console.log(`\n--- ${callType} | rate=${rate} ops/s ---`);
 
     const baseNonces = await Promise.all(
-      signers.map((s) => httpRr.next().getTransactionCount(s.address, "pending"))
+      signers.map((s, idx) => httpRr.providers[idx % httpRr.count].getTransactionCount(s.address, "pending"))
     );
     console.log(`  Base nonces: [${baseNonces.join(", ")}]`);
 
@@ -136,7 +136,8 @@ async function main() {
 
         return withTimeout(
           (async () => {
-            const broadcastProvider = httpRr.next();
+            const senderIdx = signedTxs[i].extra.sender_idx;
+            const broadcastProvider = httpRr.providers[senderIdx % httpRr.count];
             const txResponse = await broadcastProvider.broadcastTransaction(signedTx);
             const wsProvider = wsRr.next();
             const receipt = await wsProvider.waitForTransaction(txResponse.hash);
@@ -194,7 +195,7 @@ async function main() {
     while (true) {
       let allDrained = true;
       for (let s = 0; s < numSenders; s++) {
-        const checkProvider = httpRr.next();
+        const checkProvider = httpRr.providers[s % httpRr.count];
         const pending = await checkProvider.getTransactionCount(signers[s].address, "pending");
         const latest = await checkProvider.getTransactionCount(signers[s].address, "latest");
         if (pending !== latest) {
