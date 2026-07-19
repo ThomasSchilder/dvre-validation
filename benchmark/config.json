@@ -4,5 +4,9 @@
   "observations": 1000,
   "chainId": 1811,
   "gasPrice": 0,
-  "roundRobin": true
+  "roundRobin": true,
+  "scaleConfig": {
+    "intervalSeconds": 60,
+    "cooldownSeconds": 60
+  }
 }

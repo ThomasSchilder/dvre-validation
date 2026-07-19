@@ -1,10 +1,17 @@
-.PHONY: run-test destroy analyze clean
+.PHONY: run-test run-scale-test smoke-write destroy analyze clean
 
 NODE_COUNT ?= 4
 KEY_NAME ?= dvre-validation
+INITIAL_VALIDATORS ?= 4
+CALL_TYPE ?= setAttribute
+RATE ?= 50
 INVENTORY := ansible/inventory.ini
 
 run-test: infra-up inventory bootstrap deploy-besu run-benchmark collect-results destroy
+
+run-scale-test: infra-up inventory bootstrap-scale deploy-besu run-scale-benchmark collect-results destroy
+
+run-scale-test-finish: bootstrap-scale deploy-besu run-scale-benchmark collect-results destroy
 
 infra-up:
 	cd terraform && terraform init && terraform apply -auto-approve -var node_count=$(NODE_COUNT) -var key_name=$(KEY_NAME)
@@ -32,11 +39,22 @@ bootstrap:
 	sudo rm -rf besu/networkFiles
 	ansible-playbook ansible/bootstrap.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT)
 
+bootstrap-scale:
+	@echo "Sudo needed to remove root-owned networkFiles/ from previous Besu key generation"
+	sudo rm -rf besu/networkFiles
+	ansible-playbook ansible/bootstrap.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT) -e validator_count=$(INITIAL_VALIDATORS)
+
 deploy-besu:
 	ansible-playbook ansible/deploy-besu.yml -i $(INVENTORY)
 
 run-benchmark:
 	ansible-playbook ansible/run-benchmark.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT)
+
+smoke-write: infra-up inventory bootstrap deploy-besu
+	ansible-playbook ansible/run-benchmark.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT) -e '{"rates":[100]}' -e skip_reads=true
+
+run-scale-benchmark:
+	ansible-playbook ansible/run-scale-benchmark.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT) -e initial_validators=$(INITIAL_VALIDATORS) -e call_type=$(CALL_TYPE) -e rate=$(RATE)
 
 collect-results:
 	ansible-playbook ansible/collect-results.yml -i $(INVENTORY)

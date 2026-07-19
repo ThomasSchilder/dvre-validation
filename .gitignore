@@ -4,6 +4,7 @@ ansible/inventory.ini
 besu/networkFiles/
 besu/bootnodes.txt
 besu/static-nodes.json
+benchmark/nodes.json
 node_modules/
 *.tfstate*
 .terraform/

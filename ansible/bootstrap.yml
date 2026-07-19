@@ -9,6 +9,7 @@
   vars:
     work_dir: "{{ playbook_dir }}/../besu"
     network_dir: "{{ work_dir }}/networkFiles"
+    validator_count: "{{ validator_count | default(node_count) }}"
 
   tasks:
     - name: Set node count in ibftConfigFile
@@ -51,6 +52,49 @@
     - name: Display generated files
       debug:
         msg: "Found {{ node_dirs.files | length }} node directories + genesis.json"
+
+    - name: Build validator address list for RLP encoding
+      set_fact:
+        validator_addresses: "{{ key_dir_names[:validator_count | int] | map('regex_replace', '^0x', '') | list }}"
+      when: validator_count | int < node_count | int
+
+    - name: Write toEncode.json
+      copy:
+        content: "{{ validator_addresses | to_json }}"
+        dest: "{{ network_dir }}/toEncode.json"
+      when: validator_count | int < node_count | int
+
+    - name: RLP encode validator addresses
+      command: >
+        docker run --rm -v "{{ network_dir }}":/networkFiles hyperledger/besu:25.5.0
+        rlp encode --from=/networkFiles/toEncode.json
+      register: rlp_result
+      when: validator_count | int < node_count | int
+
+    - name: Display RLP result
+      debug:
+        msg: "RLP encoded extraData: {{ rlp_result.stdout | trim }}"
+      when: validator_count | int < node_count | int
+
+    - name: Replace extraData in genesis with partial validator set
+      copy:
+        content: "{{ (genesis_content | from_json) | combine({'extraData': rlp_result.stdout | trim}) | to_nice_json }}"
+        dest: "{{ network_dir }}/genesis.json"
+      when: validator_count | int < node_count | int
+
+    - name: Display validator configuration
+      debug:
+        msg: "Generated {{ node_count }} keys, genesis has {{ validator_count | int }} validators"
+
+    - name: Generate nodes.json for scale benchmark
+      copy:
+        content: |
+          [
+          {% for i in range(key_dir_names | length) %}
+            {"index": {{ i }}, "address": "{{ key_dir_names[i] }}", "rpc_url": "http://{{ hostvars[groups['besu'][i]]['private_ip'] }}:8545"}{% if not loop.last %},{% endif %}
+          {% endfor %}
+          ]
+        dest: "{{ playbook_dir }}/../benchmark/nodes.json"
 
 - name: Distribute genesis to all Besu nodes
   hosts: besu
