@@ -108,6 +108,6 @@
         RATE: "{{ item }}"
       become: false
       loop: "{{ rates }}"
-      async: 7200
+      async: 14400
       poll: 15
       register: writes_jobs

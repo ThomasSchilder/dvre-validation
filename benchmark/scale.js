@@ -9,12 +9,15 @@ function loadAbi(name) {
 
 async function main() {
   const cfg = loadConfig();
-  const httpRr = new RoundRobinProvider(cfg.rpcUrls);
+  const initialValidators = parseInt(process.env.INITIAL_VALIDATORS || "4");
+  const rpcUrls = cfg.rpcUrls.slice(0, initialValidators);
+  const httpRr = new RoundRobinProvider(rpcUrls);
 
   if (!cfg.wsUrls) {
     throw new Error("WS_URLS env var required for scale benchmark");
   }
-  const wsRr = new RoundRobinWsProvider(cfg.wsUrls);
+  const wsUrls = cfg.wsUrls.slice(0, initialValidators);
+  const wsRr = new RoundRobinWsProvider(wsUrls);
 
   const statePath = new URL("./results/state.json", import.meta.url);
   const state = JSON.parse(fs.readFileSync(statePath.pathname, "utf8"));
@@ -24,7 +27,6 @@ async function main() {
 
   const rate = parseInt(process.env.RATE || "50");
   const intervalMs = 1000 / rate;
-  const initialValidators = parseInt(process.env.INITIAL_VALIDATORS || "4");
   const callType = process.env.CALL_TYPE || "setAttribute";
   const scaleIntervalMs = (cfg.scaleConfig?.intervalSeconds || 60) * 1000;
   const cooldownMs = (cfg.scaleConfig?.cooldownSeconds || 60) * 1000;

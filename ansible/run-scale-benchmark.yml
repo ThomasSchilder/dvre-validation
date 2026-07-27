@@ -67,12 +67,13 @@
         deployer_address: "{{ deployer_info.stdout.split(' ')[1] }}"
 
     - name: Run setup
-      command: node setup.js
+      command: node setup_new.js
       args:
         chdir: /home/ubuntu/benchmark
       environment:
         RPC_URLS: "{{ rpc_urls | join(',') }}"
         DEPLOYER_PRIVATE_KEY: "{{ deployer_private_key }}"
+        INITIAL_VALIDATORS: "{{ initial_validators }}"
       become: false
       register: setup_output
 

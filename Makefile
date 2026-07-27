@@ -9,9 +9,13 @@ INVENTORY := ansible/inventory.ini
 
 run-test: infra-up inventory bootstrap deploy-besu run-benchmark collect-results destroy
 
+run-finish:  bootstrap deploy-besu run-benchmark collect-results destroy
+
 run-scale-test: infra-up inventory bootstrap-scale deploy-besu run-scale-benchmark collect-results destroy
 
 run-scale-test-finish: bootstrap-scale deploy-besu run-scale-benchmark collect-results destroy
+
+run-scale-setup-finish: run-scale-benchmark collect-results destroy
 
 infra-up:
 	cd terraform && terraform init && terraform apply -auto-approve -var node_count=$(NODE_COUNT) -var key_name=$(KEY_NAME)
