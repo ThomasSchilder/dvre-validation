@@ -10,20 +10,21 @@ function loadAbi(name) {
 async function main() {
   const cfg = loadConfig();
   const initialValidators = parseInt(process.env.INITIAL_VALIDATORS || "4");
-  const rpcUrls = cfg.rpcUrls.slice(0, initialValidators);
-  const httpRr = new RoundRobinProvider(rpcUrls);
+
+  const nodesPath = new URL("./nodes.json", import.meta.url);
+  const nodes = JSON.parse(fs.readFileSync(nodesPath.pathname, "utf8"));
+
+  const initialHttpUrls = nodes.slice(0, initialValidators).map(n => n.rpc_url);
+  const initialWsUrls = initialHttpUrls.map(u => u.replace("http://", "ws://").replace(":8545", ":8546"));
+  const httpRr = new RoundRobinProvider(initialHttpUrls);
 
   if (!cfg.wsUrls) {
     throw new Error("WS_URLS env var required for scale benchmark");
   }
-  const wsUrls = cfg.wsUrls.slice(0, initialValidators);
-  const wsRr = new RoundRobinWsProvider(wsUrls);
+  const wsRr = new RoundRobinWsProvider(initialWsUrls);
 
   const statePath = new URL("./results/state.json", import.meta.url);
   const state = JSON.parse(fs.readFileSync(statePath.pathname, "utf8"));
-
-  const nodesPath = new URL("./nodes.json", import.meta.url);
-  const nodes = JSON.parse(fs.readFileSync(nodesPath.pathname, "utf8"));
 
   const rate = parseInt(process.env.RATE || "50");
   const intervalMs = 1000 / rate;
@@ -184,6 +185,12 @@ async function main() {
       });
 
       console.log(`[SCALE] Validator activated in ${activationDurationMs}ms (polls: ${pollCount}) at block ${blockNumber}, tx_pool_pending: ${txPoolStatus.pending}`);
+
+      const newNodeHttpUrl = nextNode.rpc_url;
+      const newNodeWsUrl = newNodeHttpUrl.replace("http://", "ws://").replace(":8545", ":8546");
+      httpRr.addProvider(newNodeHttpUrl);
+      wsRr.addProvider(newNodeWsUrl);
+      console.log(`[SCALE] Added ${newNodeHttpUrl} to RPC pool (now ${httpRr.count} endpoints)`);
     }
 
     console.log(`\n[SCALE] All ${nodes.length} validators active. Cooling down for ${cooldownMs / 1000}s...`);
@@ -235,7 +242,11 @@ async function main() {
         callType
       ).then((result) => {
         transactions.push(result);
-      }).catch((err) => {
+      }).catch(async (err) => {
+        try {
+          nonces[senderIdx] = await httpRr.next()
+            .getTransactionCount(signers[senderIdx].address, "pending");
+        } catch {}
         transactions.push({
           call_type: callType,
           obs_n: i,
@@ -243,6 +254,7 @@ async function main() {
           complete_ts: Date.now(),
           latency_ms: Date.now() - submitTs,
           error: err.shortMessage || err.message,
+          raw_error: err.error ? JSON.stringify(err.error) : err.toString(),
           validator_count: currentValidatorCount,
           sender_idx: senderIdx,
           signed_tx: signedTx,

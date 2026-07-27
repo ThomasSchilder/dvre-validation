@@ -46,6 +46,13 @@ export class RoundRobinProvider {
   getUrl(i) {
     return this.urls[i % this.urls.length];
   }
+
+  addProvider(url) {
+    const p = new JsonRpcProvider(url);
+    p._rpcUrl = url;
+    this.providers.push(p);
+    this.urls.push(url);
+  }
 }
 
 export class RoundRobinWsProvider {
@@ -63,6 +70,11 @@ export class RoundRobinWsProvider {
 
   get count() {
     return this.providers.length;
+  }
+
+  addProvider(url) {
+    this.providers.push(new WebSocketProvider(url));
+    this.urls.push(url);
   }
 
   destroy() {
