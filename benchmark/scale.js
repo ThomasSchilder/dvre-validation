@@ -134,6 +134,9 @@ async function main() {
 
       let activated = false;
       let pollCount = 0;
+      let blockNumber = null;
+      let activationTs = null;
+      let activationDurationMs = null;
       const pollStart = Date.now();
       while (!activated && Date.now() - pollStart < 60000) {
         pollCount++;
@@ -141,6 +144,9 @@ async function main() {
         if (validators.includes(nextNode.address)) {
           activated = true;
           currentValidatorCount = validators.length;
+          blockNumber = await provider.getBlockNumber()
+          activationTs = Date.now();
+          activationDurationMs = activationTs - voteSubmitTs;
         } else {
           await sleep(500);
         }
@@ -163,10 +169,7 @@ async function main() {
         continue;
       }
 
-      const activationTs = Date.now();
-      const activationDurationMs = activationTs - voteSubmitTs;
       const provider = httpRr.next();
-      const blockNumber = await provider.getBlockNumber();
       const txPoolStatus = await getTxPoolStatus();
 
       scaleEvents.push({
