@@ -20,6 +20,7 @@ services:
       BESU_RPC_WS_METHODS: "ETH,NET,WEB3,TRACE,DEBUG"
       BESU_HOST_ALLOWLIST: "*"
       BESU_MIN_GAS_PRICE: "0"
+      BESU_TX_POOL: "sequenced"
       BESU_BONSAI_HISTORICAL_BLOCK_LIMIT: "512"
       BESU_SYNC_MIN_PEERS: "0"
     logging:
