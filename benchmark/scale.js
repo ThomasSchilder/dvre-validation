@@ -183,7 +183,7 @@ async function main() {
         poll_count: pollCount,
       });
 
-      console.log(`[SCALE] Validator activated in ${activationDurationMs}ms (polls: ${pollCount}) at block ${blockNumber}, tx_pool_pending: ${txPoolStatus.pending}`);
+      console.log(`[SCALE] Validator activated in ${activationDurationMs}ms (polls: ${pollCount}) at block ${blockNumber}`);
 
       const newNodeHttpUrl = nextNode.rpc_url;
       const newNodeWsUrl = newNodeHttpUrl.replace("http://", "ws://").replace(":8545", ":8546");
