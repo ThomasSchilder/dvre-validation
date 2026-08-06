@@ -144,6 +144,7 @@ async function main() {
         if (validators.includes(nextNode.address)) {
           activated = true;
           currentValidatorCount = validators.length;
+          const provider = httpRr.next();
           blockNumber = await provider.getBlockNumber()
           activationTs = Date.now();
           activationDurationMs = activationTs - voteSubmitTs;
@@ -169,9 +170,6 @@ async function main() {
         continue;
       }
 
-      const provider = httpRr.next();
-      const txPoolStatus = await getTxPoolStatus();
-
       scaleEvents.push({
         step: step + 1,
         validator_count_before: validatorsBefore,
@@ -182,8 +180,6 @@ async function main() {
         activation_ts: activationTs,
         activation_duration_ms: activationDurationMs,
         activation_block: blockNumber,
-        tx_pool_pending: txPoolStatus.pending,
-        tx_pool_queued: txPoolStatus.queued,
         poll_count: pollCount,
       });
 
