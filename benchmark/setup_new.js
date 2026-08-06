@@ -14,7 +14,7 @@ async function deployContract(signer, abi, bytecode, ...args) {
   return contract;
 }
 
-const SENDER_WALLET_COUNT = 100;
+const SENDER_WALLET_COUNT = 20;
 
 async function main() {
   const cfg = loadConfig();

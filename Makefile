@@ -4,7 +4,7 @@ NODE_COUNT ?= 4
 KEY_NAME ?= dvre-validation
 INITIAL_VALIDATORS ?= 4
 CALL_TYPE ?= setAttribute
-RATE ?= 50
+RATE ?= 10
 INVENTORY := ansible/inventory.ini
 
 run-test: infra-up inventory bootstrap deploy-besu run-benchmark collect-results destroy
