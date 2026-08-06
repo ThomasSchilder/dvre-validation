@@ -96,7 +96,8 @@ async function main() {
 
   async function getCurrentValidators() {
     const provider = httpRr.next();
-    return provider.send("ibft_getValidatorsByBlockNumber", ["latest"]);
+    const validators = await provider.send("ibft_getValidatorsByBlockNumber", ["latest"]);
+    return validators || [];
   }
 
   async function getTxPoolStatus() {
