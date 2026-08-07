@@ -41,7 +41,7 @@ inventory:
 bootstrap:
 	@echo "Sudo needed to remove root-owned networkFiles/ from previous Besu key generation"
 	sudo rm -rf besu/networkFiles
-	ansible-playbook ansible/bootstrap.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT)
+	ansible-playbook ansible/bootstrap.yml -i $(INVENTORY) -e node_count=$(NODE_COUNT) -e validator_count=$(NODE_COUNT)
 
 bootstrap-scale:
 	@echo "Sudo needed to remove root-owned networkFiles/ from previous Besu key generation"

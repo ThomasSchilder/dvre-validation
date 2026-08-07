@@ -9,7 +9,7 @@
   vars:
     work_dir: "{{ playbook_dir }}/../besu"
     network_dir: "{{ work_dir }}/networkFiles"
-    validator_count: "{{ validator_count | default(node_count) }}"
+    validator_count: "{{ node_count }}"
 
   tasks:
     - name: Set node count in ibftConfigFile
