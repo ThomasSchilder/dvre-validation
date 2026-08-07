@@ -284,7 +284,6 @@ async function main() {
     runScaling(),
   ]);
 
-  wsRr.destroy();
   saveResults(transactions, `scale_${callType}_transactions.json`);
   saveResults(scaleEvents, `scale_${callType}_events.json`);
 
