@@ -203,6 +203,8 @@ async function main() {
     const startMs = Date.now();
     let seconds = 0;
 
+    const txStream = fs.createWriteStream(`./results/scale_${callType}_transactions_stream.jsonl`, { flags: "w" });
+
     const logger = setInterval(() => {
       seconds++;
       console.log(`  [benchmark ${seconds}s] sent: ${txCounter}, completed: ${transactions.length}, validators: ${currentValidatorCount}`);
@@ -242,12 +244,13 @@ async function main() {
         callType
       ).then((result) => {
         transactions.push(result);
+        txStream.write(JSON.stringify(result) + "\n");
       }).catch(async (err) => {
         try {
           nonces[senderIdx] = await httpRr.next()
             .getTransactionCount(signers[senderIdx].address, "pending");
         } catch {}
-        transactions.push({
+        const errorEntry = {
           call_type: callType,
           obs_n: i,
           submit_ts: submitTs,
@@ -258,7 +261,9 @@ async function main() {
           validator_count: currentValidatorCount,
           sender_idx: senderIdx,
           signed_tx: signedTx,
-        });
+        };
+        transactions.push(errorEntry);
+        txStream.write(JSON.stringify(errorEntry) + "\n");
       });
       txPromises.push(promise);
 
@@ -271,6 +276,7 @@ async function main() {
     console.log(`\nBenchmark loop ended. Sent ${txCounter} tx, waiting for ${txCounter - transactions.length} in-flight...`);
     await Promise.allSettled(txPromises);
     console.log(`All ${transactions.length} transactions completed.`);
+    txStream.end();
   }
 
   await Promise.all([

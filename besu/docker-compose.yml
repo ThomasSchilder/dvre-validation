@@ -21,6 +21,7 @@ services:
       BESU_HOST_ALLOWLIST: "*"
       BESU_MIN_GAS_PRICE: "0"
       BESU_TX_POOL: "sequenced"
+      BESU_TX_POOL_LIMIT_BY_ACCOUNT_PERCENTAGE: "1"
       BESU_BONSAI_HISTORICAL_BLOCK_LIMIT: "512"
       BESU_SYNC_MIN_PEERS: "0"
     logging:
